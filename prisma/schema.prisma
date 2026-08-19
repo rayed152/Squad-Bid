@@ -1,0 +1,251 @@
+// SquadBid database schema
+// Uses Prisma's Neon driver adapter for serverless Postgres connections.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth (NextAuth.js — Prisma adapter shape)
+// ---------------------------------------------------------------------------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Core domain
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  email         String    @unique
+  passwordHash  String?
+  image         String?
+  elo           Int       @default(1000)
+  wins          Int       @default(0)
+  losses        Int       @default(0)
+  draws         Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  hostedRooms  Room[] @relation("HostedRooms")
+  guestedRooms Room[] @relation("GuestedRooms")
+
+  matchesAsPlayer1 Match[] @relation("Player1Matches")
+  matchesAsPlayer2 Match[] @relation("Player2Matches")
+  matchesWon       Match[] @relation("MatchWinner")
+
+  matchSquads MatchSquad[]
+  bids        Bid[]
+
+  @@index([elo])
+}
+
+enum RoomStatus {
+  WAITING
+  READY
+  IN_PROGRESS
+  CLOSED
+}
+
+model Room {
+  id         String     @id @default(cuid())
+  code       String     @unique
+  status     RoomStatus @default(WAITING)
+  // Public rooms are matched into automatically by "Find Random Match";
+  // private rooms are only joinable via their code ("Play with Friends").
+  isPublic   Boolean    @default(false)
+  hostReady  Boolean    @default(false)
+  guestReady Boolean    @default(false)
+
+  hostId  String
+  guestId String?
+
+  host  User  @relation("HostedRooms", fields: [hostId], references: [id], onDelete: Cascade)
+  guest User? @relation("GuestedRooms", fields: [guestId], references: [id], onDelete: SetNull)
+
+  match Match?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isPublic, status])
+}
+
+enum MatchStatus {
+  FORMATION_SELECT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Match {
+  id     String      @id @default(cuid())
+  status MatchStatus @default(FORMATION_SELECT)
+
+  roomId String? @unique
+  room   Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  player1Id String
+  player2Id String
+  player1   User   @relation("Player1Matches", fields: [player1Id], references: [id])
+  player2   User   @relation("Player2Matches", fields: [player2Id], references: [id])
+
+  formation1 String?
+  formation2 String?
+
+  budget      Int @default(1000)
+  totalRounds Int @default(11)
+  currentRound Int @default(0)
+
+  player1Score Float?
+  player2Score Float?
+
+  winnerId String?
+  winner   User?   @relation("MatchWinner", fields: [winnerId], references: [id])
+
+  rounds      MatchRound[]
+  squads      MatchSquad[]
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([player1Id])
+  @@index([player2Id])
+  @@index([status])
+}
+
+enum RoundStatus {
+  POPPED
+  BIDDING
+  RESOLVED
+  SKIPPED
+}
+
+// One footballer "pop" during a match. Tracks the blind-bid lifecycle
+// for the bidding variant, and is also referenced by MatchSquad when the
+// player is assigned to a slot (draft/simultaneous variants).
+model MatchRound {
+  id          String      @id @default(cuid())
+  matchId     String
+  match       Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  roundNumber Int
+  playerId    String
+  player      Player      @relation(fields: [playerId], references: [id])
+  status      RoundStatus @default(POPPED)
+
+  biddingEndsAt DateTime?
+
+  bids   Bid[]
+  squads MatchSquad[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([matchId, roundNumber])
+  @@index([matchId])
+}
+
+// A single user's blind bid for the player popped in a given round.
+model Bid {
+  id           String     @id @default(cuid())
+  matchRoundId String
+  matchRound   MatchRound @relation(fields: [matchRoundId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  amount       Int
+  createdAt    DateTime   @default(now())
+
+  @@unique([matchRoundId, userId])
+}
+
+// A footballer slotted into one user's formation for a given match.
+model MatchSquad {
+  id       String  @id @default(cuid())
+  matchId  String
+  match    Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User    @relation(fields: [userId], references: [id])
+  playerId String
+  player   Player  @relation(fields: [playerId], references: [id])
+
+  matchRoundId String?
+  matchRound   MatchRound? @relation(fields: [matchRoundId], references: [id], onDelete: SetNull)
+
+  assignedPosition String
+  roundNumber      Int
+  bidAmount        Int?
+
+  createdAt DateTime @default(now())
+
+  // A user can only fill each slot in their own formation once per match.
+  @@unique([matchId, userId, assignedPosition])
+  // A user can't claim the same footballer twice in one match.
+  @@unique([matchId, userId, playerId])
+  @@index([matchId, userId])
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  name        String
+  nationality String
+  positions   String[]
+  overall     Int
+  pace        Int
+  shooting    Int
+  passing     Int
+  dribbling   Int
+  defending   Int
+  physical    Int
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+
+  matchRounds MatchRound[]
+  matchSquads MatchSquad[]
+
+  @@index([overall])
+  @@index([positions])
+}

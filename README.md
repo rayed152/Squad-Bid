@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SquadBid
 
-## Getting Started
+Two players build their best XI by bidding on randomly-popped footballers and slotting them into a chosen formation. Highest average squad rating wins.
 
-First, run the development server:
+## Stack
+
+- Next.js 14 (App Router) + TypeScript
+- Prisma ORM + Neon Postgres (via `@prisma/adapter-neon` driver adapter)
+- Tailwind CSS
+- NextAuth.js (credentials + optional Google OAuth), Zod, polling for real-time sync
+
+## Getting started
 
 ```bash
+cp .env.example .env   # fill in DATABASE_URL / DIRECT_URL from your Neon project, and NEXTAUTH_SECRET
+npm install
+npx prisma migrate dev --name init
+npm run prisma:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Project layout
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+prisma/schema.prisma       Database models (User, Room, Match, MatchRound, Bid, MatchSquad, Player)
+prisma/seed.ts             Sample footballer pool for local dev
+src/lib/prisma.ts          Prisma client singleton (Neon driver adapter)
+src/lib/auth.ts            NextAuth config (credentials provider, optional Google)
+src/lib/auth-adapter.ts    Prisma adapter bridged to our `username`-based User model
+src/lib/formations.ts      Formation definitions (4-3-3, 4-4-2, 3-5-2, 4-2-3-1, 5-3-2) and slot layout
+src/lib/positions.ts       Position eligibility rules
+src/types/player.ts        Shared FootballPlayer type
+src/components/player-card.tsx      Player card (full pop-up variant + compact in-slot variant)
+src/components/formation-pitch.tsx  Pitch view rendering a formation's slots and assignments
+src/actions/room.ts        Matchmaking + private room server actions
+src/actions/match.ts       Formation-selection server action
+src/app/(auth)/            Sign in / sign up
+src/app/menu/              Main menu (find match, play with friends, links to stats/leaderboard)
+src/app/room/[code]/       Lobby — polls room state, ready-check, starts the match once both are ready
+src/app/match/[matchId]/formation/  Formation picker — polls until both players have locked in
+src/app/match/[matchId]/live/       Placeholder for the live bidding round loop (not built yet)
+src/app/preview/           Interactive Formation + PlayerCard component preview (no auth required)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Real-time sync (lobby ready-check, formation lock-in) uses client-side polling against small
+`GET /api/rooms/[code]` and `GET /api/matches/[id]` route handlers rather than WebSockets — no extra
+infra to run, and it's fine at this interaction rate. Revisit if the live bidding round needs
+sub-second latency.
 
-## Learn More
+## Status
 
-To learn more about Next.js, take a look at the following resources:
+Built: project scaffold, full Prisma schema, auth (sign up / sign in, credentials-based), main menu,
+matchmaking (random + friend room codes), the ready-check lobby, and the formation picker — all wired
+together end-to-end and polling-synced between both players.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Not built yet: the live match round loop (footballer pop-ups, blind bidding, slot assignment), the
+results/comparison screen, and ELO updates on match completion. `src/app/match/[matchId]/live/page.tsx`
+is currently a placeholder marking where that picks up.
