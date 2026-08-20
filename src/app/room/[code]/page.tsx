@@ -8,6 +8,10 @@ type RoomState = {
   id: string;
   code: string;
   status: "WAITING" | "READY" | "IN_PROGRESS" | "CLOSED";
+  name: string | null;
+  description: string | null;
+  scheduledAt: string | null;
+  poolSize: number;
   budget: number;
   minimumBid: number;
   bidTimeSeconds: number;
@@ -102,6 +106,18 @@ export default function RoomPage({ params }: { params: { code: string } }) {
         </button>
       </header>
 
+      {(room.name || room.description || room.scheduledAt) && (
+        <div className="rounded-xl border border-squad-border bg-squad-panel px-4 py-3 text-center">
+          {room.name && <p className="text-base font-bold text-gray-100">{room.name}</p>}
+          {room.description && <p className="mt-1 text-sm text-gray-400">{room.description}</p>}
+          {room.scheduledAt && (
+            <p className="mt-1 text-xs text-gray-500">
+              Opens {new Date(room.scheduledAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-center text-xs text-gray-400">
         <p>
           <span className="block text-base font-bold text-gray-100">{room.budget}</span>
@@ -124,6 +140,12 @@ export default function RoomPage({ params }: { params: { code: string } }) {
             {room.benchSize > 0 ? room.benchSize : "None"}
           </span>
           subs
+        </p>
+        <p>
+          <span className="block text-base font-bold text-gray-100">
+            {room.poolSize > 0 ? room.poolSize : "All"}
+          </span>
+          player pool
         </p>
       </div>
 

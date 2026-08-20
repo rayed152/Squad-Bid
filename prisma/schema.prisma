@@ -104,6 +104,12 @@ model Room {
   hostReady  Boolean    @default(false)
   guestReady Boolean    @default(false)
 
+  // General lobby info, set by the host at creation. All optional — a room
+  // works fine with none of these filled in.
+  name        String?
+  description String?
+  scheduledAt DateTime?
+
   // Match settings chosen by the host at lobby creation — carried over to
   // the Match once both players ready up. Only configurable for private
   // ("Play with Friends") rooms; public matchmaking rooms use the defaults.
@@ -114,6 +120,10 @@ model Room {
   // Extra bench slots that accept a player of any position. 0 means no subs —
   // a slot with no eligible starting XI opening blocks bidding entirely.
   benchSize      Int @default(0)
+
+  // Curated player pool for this room's match, chosen by the host. Empty
+  // means "all players" (the original, unrestricted behavior).
+  poolPlayerIds String[] @default([])
 
   hostId  String
   guestId String?
@@ -157,6 +167,10 @@ model Match {
   bidIncrement   Int @default(10)
   benchSize      Int @default(0)
   currentRound   Int @default(0)
+
+  // Curated player pool copied from the Room at match creation. Empty means
+  // "all players" — see Room.poolPlayerIds.
+  poolPlayerIds String[] @default([])
 
   player1Score Float?
   player2Score Float?
@@ -260,6 +274,8 @@ model Player {
   name        String
   nationality String
   positions   String[]
+  club        String   @default("")
+  league      String   @default("")
   overall     Int
   pace        Int
   shooting    Int
@@ -275,4 +291,7 @@ model Player {
 
   @@index([overall])
   @@index([positions])
+  @@index([nationality])
+  @@index([club])
+  @@index([league])
 }

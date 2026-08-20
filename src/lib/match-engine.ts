@@ -1,4 +1,4 @@
-import type { Match } from "@prisma/client";
+import type { Match, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getFormation, getAllSlots, type FormationId } from "@/lib/formations";
 import { isEligibleForSlot } from "@/lib/positions";
@@ -91,19 +91,20 @@ async function startRound(match: Match, roundNumber: number) {
     await prisma.matchRound.findMany({ where: { matchId: match.id }, select: { playerId: true } })
   ).map((r) => r.playerId);
 
-  const poolSize = await prisma.player.count({
-    where: usedPlayerIds.length ? { id: { notIn: usedPlayerIds } } : undefined,
-  });
+  // Empty poolPlayerIds means "all players" (the original, unrestricted behavior).
+  const where: Prisma.PlayerWhereInput = {
+    ...(usedPlayerIds.length ? { id: { notIn: usedPlayerIds } } : {}),
+    ...(match.poolPlayerIds.length ? { id: { in: match.poolPlayerIds } } : {}),
+  };
+
+  const poolSize = await prisma.player.count({ where });
   if (poolSize === 0) {
     await completeMatch(match.id);
     return;
   }
 
   const skip = Math.floor(Math.random() * poolSize);
-  const player = await prisma.player.findFirst({
-    where: usedPlayerIds.length ? { id: { notIn: usedPlayerIds } } : undefined,
-    skip,
-  });
+  const player = await prisma.player.findFirst({ where, skip });
   if (!player) return;
 
   try {

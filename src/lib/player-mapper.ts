@@ -7,6 +7,8 @@ export function toFootballPlayer(player: PrismaPlayer): FootballPlayer {
     id: player.id,
     name: player.name,
     nationality: player.nationality,
+    club: player.club,
+    league: player.league,
     overall: player.overall,
     positions: player.positions as Position[],
     pace: player.pace,

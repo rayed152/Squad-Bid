@@ -15,11 +15,15 @@ async function requireUserId() {
 }
 
 type RoomSettings = {
+  name?: string;
+  description?: string;
+  scheduledAt?: Date;
   budget?: number;
   minimumBid?: number;
   bidTimeSeconds?: number;
   bidIncrement?: number;
   benchSize?: number;
+  poolPlayerIds?: string[];
 };
 
 async function createRoom(hostId: string, isPublic: boolean, settings?: RoomSettings) {
@@ -30,11 +34,15 @@ async function createRoom(hostId: string, isPublic: boolean, settings?: RoomSett
           code: generateRoomCode(),
           hostId,
           isPublic,
+          name: settings?.name,
+          description: settings?.description,
+          scheduledAt: settings?.scheduledAt,
           budget: settings?.budget,
           minimumBid: settings?.minimumBid,
           bidTimeSeconds: settings?.bidTimeSeconds,
           bidIncrement: settings?.bidIncrement,
           benchSize: settings?.benchSize,
+          poolPlayerIds: settings?.poolPlayerIds ?? [],
         },
       });
     } catch (err) {
@@ -84,14 +92,21 @@ const MIN_BID_INCREMENT = 1;
 const MAX_BID_INCREMENT = 500;
 const MIN_BENCH_SIZE = 0;
 const MAX_BENCH_SIZE = 10;
+const MAX_NAME_LENGTH = 60;
+const MAX_DESCRIPTION_LENGTH = 300;
+const MAX_POOL_SIZE = 1000;
 
 /** "Play with Friends" — host a private room, configured with the settings picked on the setup screen. */
 export async function createFriendRoom(settings: {
+  name?: string;
+  description?: string;
+  scheduledAt?: string | null;
   budget: number;
   minimumBid: number;
   bidTimeSeconds: number;
   bidIncrement: number;
   benchSize: number;
+  poolPlayerIds?: string[];
 }) {
   const userId = await requireUserId();
   const { budget, minimumBid, bidTimeSeconds, bidIncrement, benchSize } = settings;
@@ -112,7 +127,34 @@ export async function createFriendRoom(settings: {
     return { error: `Bench size must be between ${MIN_BENCH_SIZE} and ${MAX_BENCH_SIZE}` };
   }
 
-  const room = await createRoom(userId, false, { budget, minimumBid, bidTimeSeconds, bidIncrement, benchSize });
+  const name = settings.name?.trim().slice(0, MAX_NAME_LENGTH) || undefined;
+  const description = settings.description?.trim().slice(0, MAX_DESCRIPTION_LENGTH) || undefined;
+
+  let scheduledAt: Date | undefined;
+  if (settings.scheduledAt) {
+    const parsed = new Date(settings.scheduledAt);
+    if (Number.isNaN(parsed.getTime())) {
+      return { error: "Invalid opening date/time" };
+    }
+    scheduledAt = parsed;
+  }
+
+  const poolPlayerIds = [...new Set(settings.poolPlayerIds ?? [])];
+  if (poolPlayerIds.length > MAX_POOL_SIZE) {
+    return { error: `Player pool can't exceed ${MAX_POOL_SIZE} players` };
+  }
+
+  const room = await createRoom(userId, false, {
+    name,
+    description,
+    scheduledAt,
+    budget,
+    minimumBid,
+    bidTimeSeconds,
+    bidIncrement,
+    benchSize,
+    poolPlayerIds,
+  });
   redirect(`/room/${room.code}`);
 }
 
@@ -169,6 +211,7 @@ export async function setReady(roomId: string, ready: boolean) {
         bidTimeSeconds: updated.bidTimeSeconds,
         bidIncrement: updated.bidIncrement,
         benchSize: updated.benchSize,
+        poolPlayerIds: updated.poolPlayerIds,
       },
     });
     await prisma.room.update({ where: { id: roomId }, data: { status: "IN_PROGRESS" } });

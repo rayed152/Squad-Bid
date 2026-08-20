@@ -1,173 +1,144 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { createFriendRoom } from "@/actions/room";
+import { SideNav, type SideNavItem } from "@/components/side-nav";
+import { GeneralSection } from "./general-section";
+import { PlayersSection } from "./players-section";
+import { MatchSetupSection } from "./match-setup-section";
+import type { FootballPlayer } from "@/types/player";
 
-const BUDGET_PRESETS = [500, 1000, 2000, 5000];
-const MINIMUM_BID_PRESETS = [100, 300, 500, 1000];
-const BID_TIME_PRESETS = [10, 15, 20, 30];
-const BID_INCREMENT_PRESETS = [5, 10, 25, 50];
-const BENCH_SIZE_PRESETS = [0, 2, 3, 5];
+const NAV_ITEMS: SideNavItem[] = [
+  { key: "general", label: "General settings", description: "Name, description, schedule" },
+  { key: "players", label: "Players", description: "Pick the player pool" },
+  { key: "match-setup", label: "Match setup", description: "Budget, bidding, bench" },
+  { key: "moderators", label: "Moderators", description: "Manage co-hosts", locked: true },
+];
 
 export default function CreateRoomPage() {
+  const [section, setSection] = useState("general");
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+
+  const [poolMode, setPoolMode] = useState<"all" | "custom">("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const playerCache = useRef<Map<string, FootballPlayer>>(new Map()).current;
+
   const [budget, setBudget] = useState(1000);
   const [minimumBid, setMinimumBid] = useState(500);
   const [bidTimeSeconds, setBidTimeSeconds] = useState(20);
   const [bidIncrement, setBidIncrement] = useState(10);
   const [benchSize, setBenchSize] = useState(0);
+
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  function togglePlayer(player: FootballPlayer) {
+    playerCache.set(player.id, player);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(player.id)) next.delete(player.id);
+      else next.add(player.id);
+      return next;
+    });
+  }
+
+  function addManyPlayers(ids: string[]) {
+    setSelectedIds((prev) => new Set([...prev, ...ids]));
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await createFriendRoom({ budget, minimumBid, bidTimeSeconds, bidIncrement, benchSize });
+      const result = await createFriendRoom({
+        name: name.trim() || undefined,
+        description: description.trim() || undefined,
+        scheduledAt: scheduledAt || null,
+        budget,
+        minimumBid,
+        bidTimeSeconds,
+        bidIncrement,
+        benchSize,
+        poolPlayerIds: poolMode === "custom" ? [...selectedIds] : [],
+      });
       if (result?.error) setError(result.error);
     });
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-8 px-6 py-10">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
       <div>
-        <h1 className="text-2xl font-black text-white">Match setup</h1>
+        <h1 className="text-2xl font-black text-white">Create a lobby</h1>
         <p className="mt-1 text-sm text-gray-400">
-          Choose the auction rules for this lobby — your opponent joins with your code once it&apos;s
-          created. Matches run until both squads are completely full.
+          Set everything up here — your opponent joins with your code once the lobby&apos;s created.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <SettingField
-          label="Starting coins"
-          hint="How many coins each player has to bid with."
-          value={budget}
-          onChange={setBudget}
-          presets={BUDGET_PRESETS}
-          min={100}
-          max={10_000}
-          step={100}
-        />
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6 md:flex-row">
+        <SideNav items={NAV_ITEMS} activeKey={section} onSelect={setSection} />
 
-        <SettingField
-          label="Minimum opening bid"
-          hint="The lowest bid allowed to open on a newly-popped player."
-          value={minimumBid}
-          onChange={setMinimumBid}
-          presets={MINIMUM_BID_PRESETS}
-          min={0}
-          max={5_000}
-          step={50}
-        />
+        <div className="min-w-0 flex-1 rounded-2xl border border-squad-border bg-squad-panel/40 p-5">
+          {section === "general" && (
+            <GeneralSection
+              name={name}
+              onNameChange={setName}
+              description={description}
+              onDescriptionChange={setDescription}
+              scheduledAt={scheduledAt}
+              onScheduledAtChange={setScheduledAt}
+            />
+          )}
 
-        <SettingField
-          label="Turn time"
-          hint="Seconds each player gets to raise or pass before the clock resets."
-          value={bidTimeSeconds}
-          onChange={setBidTimeSeconds}
-          presets={BID_TIME_PRESETS}
-          min={5}
-          max={60}
-          step={5}
-          suffix="s"
-        />
+          {section === "players" && (
+            <PlayersSection
+              mode={poolMode}
+              onModeChange={setPoolMode}
+              selectedIds={selectedIds}
+              playerCache={playerCache}
+              onToggle={togglePlayer}
+              onAddMany={addManyPlayers}
+              onClear={clearSelection}
+            />
+          )}
 
-        <SettingField
-          label="Minimum raise"
-          hint="How much higher a raise must be than the current bid — e.g. a 500 bid needs at least 510 to top it, if this is set to 10."
-          value={bidIncrement}
-          onChange={setBidIncrement}
-          presets={BID_INCREMENT_PRESETS}
-          min={1}
-          max={500}
-          step={1}
-        />
+          {section === "match-setup" && (
+            <MatchSetupSection
+              budget={budget}
+              onBudgetChange={setBudget}
+              minimumBid={minimumBid}
+              onMinimumBidChange={setMinimumBid}
+              bidTimeSeconds={bidTimeSeconds}
+              onBidTimeSecondsChange={setBidTimeSeconds}
+              bidIncrement={bidIncrement}
+              onBidIncrementChange={setBidIncrement}
+              benchSize={benchSize}
+              onBenchSizeChange={setBenchSize}
+            />
+          )}
 
-        <SettingField
-          label="Substitutes"
-          hint="Bench slots that accept a player of any position — lets you buy a duplicate (e.g. a second LB) instead of being locked out once that spot's taken. 0 means no bench: once a position is full, you can't bid on another player who only fits there."
-          value={benchSize}
-          onChange={setBenchSize}
-          presets={BENCH_SIZE_PRESETS}
-          min={0}
-          max={10}
-          step={1}
-        />
-
-        {error && <p className="text-sm text-rose-400">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-xl bg-squad-accent px-4 py-3 text-sm font-bold text-black transition hover:bg-squad-accent/90 disabled:opacity-50"
-        >
-          {pending ? "Creating lobby…" : "Create lobby"}
-        </button>
+          <div className="mt-8 flex flex-col gap-3 border-t border-squad-border pt-5">
+            {error && <p className="text-sm text-rose-400">{error}</p>}
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-xl bg-squad-accent px-4 py-3 text-sm font-bold text-black transition hover:bg-squad-accent/90 disabled:opacity-50"
+            >
+              {pending ? "Creating lobby…" : "Create lobby"}
+            </button>
+            <Link href="/menu" className="text-center text-sm font-semibold text-gray-500 hover:text-gray-300">
+              Back to menu
+            </Link>
+          </div>
+        </div>
       </form>
-
-      <Link href="/menu" className="text-center text-sm font-semibold text-gray-500 hover:text-gray-300">
-        Back to menu
-      </Link>
     </main>
-  );
-}
-
-function SettingField({
-  label,
-  hint,
-  value,
-  onChange,
-  presets,
-  min,
-  max,
-  step,
-  suffix,
-}: {
-  label: string;
-  hint: string;
-  value: number;
-  onChange: (value: number) => void;
-  presets: number[];
-  min: number;
-  max: number;
-  step: number;
-  suffix?: string;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div>
-        <p className="text-sm font-bold text-gray-100">{label}</p>
-        <p className="text-xs text-gray-500">{hint}</p>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {presets.map((preset) => (
-          <button
-            key={preset}
-            type="button"
-            onClick={() => onChange(preset)}
-            className={`rounded-full border px-3 py-1 text-sm font-semibold transition ${
-              value === preset
-                ? "border-squad-accent bg-squad-accent/20 text-squad-accent"
-                : "border-squad-border bg-squad-panel text-gray-300 hover:border-white/30"
-            }`}
-          >
-            {preset}
-            {suffix}
-          </button>
-        ))}
-      </div>
-
-      <input
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="rounded-lg border border-squad-border bg-squad-panel px-3 py-2 text-sm text-gray-100 outline-none focus:border-squad-accent"
-      />
-    </div>
   );
 }

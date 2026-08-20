@@ -2,7 +2,7 @@
 // in a spreadsheet (Excel, Google Sheets, etc.) instead of hand-editing a
 // TypeScript array. Re-run `npm run prisma:seed` after editing the CSV.
 //
-// CSV columns: name,nationality,positions,overall,pace,shooting,passing,dribbling,defending,physical
+// CSV columns: name,nationality,positions,club,league,overall,pace,shooting,passing,dribbling,defending,physical
 // `positions` supports multiple values separated by "|", e.g. "CM|CDM".
 //
 // Names, nationalities, and positions are public facts. The numeric ratings
@@ -17,6 +17,8 @@ export type SeedPlayer = {
   name: string;
   nationality: string;
   positions: string[];
+  club: string;
+  league: string;
   overall: number;
   pace: number;
   shooting: number;
@@ -58,6 +60,8 @@ function parseCsv(content: string): SeedPlayer[] {
       name: record.name,
       nationality: record.nationality,
       positions: record.positions.split("|"),
+      club: record.club,
+      league: record.league,
     } as SeedPlayer;
 
     for (const col of NUMERIC_COLUMNS) {
