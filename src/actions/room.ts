@@ -14,11 +14,21 @@ async function requireUserId() {
   return session.user.id;
 }
 
-async function createRoom(hostId: string, isPublic: boolean) {
+async function createRoom(
+  hostId: string,
+  isPublic: boolean,
+  settings?: { budget?: number; totalRounds?: number }
+) {
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       return await prisma.room.create({
-        data: { code: generateRoomCode(), hostId, isPublic },
+        data: {
+          code: generateRoomCode(),
+          hostId,
+          isPublic,
+          budget: settings?.budget,
+          totalRounds: settings?.totalRounds,
+        },
       });
     } catch (err) {
       // Unique constraint collision on `code` — extremely unlikely, just retry.
@@ -57,10 +67,23 @@ export async function findRandomMatch() {
   throw new Error("Could not find or create a match right now — try again.");
 }
 
-/** "Play with Friends" — host a private room and hand back its join code. */
-export async function createFriendRoom() {
+const MIN_BUDGET = 100;
+const MAX_BUDGET = 10_000;
+const MIN_ROUNDS = 5;
+const MAX_ROUNDS = 20;
+
+/** "Play with Friends" — host a private room, configured with the settings picked on the setup screen. */
+export async function createFriendRoom(budget: number, totalRounds: number) {
   const userId = await requireUserId();
-  const room = await createRoom(userId, false);
+
+  if (!Number.isInteger(budget) || budget < MIN_BUDGET || budget > MAX_BUDGET) {
+    return { error: `Starting coins must be between ${MIN_BUDGET} and ${MAX_BUDGET}` };
+  }
+  if (!Number.isInteger(totalRounds) || totalRounds < MIN_ROUNDS || totalRounds > MAX_ROUNDS) {
+    return { error: `Rounds must be between ${MIN_ROUNDS} and ${MAX_ROUNDS}` };
+  }
+
+  const room = await createRoom(userId, false, { budget, totalRounds });
   redirect(`/room/${room.code}`);
 }
 
@@ -112,6 +135,8 @@ export async function setReady(roomId: string, ready: boolean) {
         roomId: updated.id,
         player1Id: updated.hostId,
         player2Id: updated.guestId,
+        budget: updated.budget,
+        totalRounds: updated.totalRounds,
       },
     });
     await prisma.room.update({ where: { id: roomId }, data: { status: "IN_PROGRESS" } });

@@ -81,6 +81,8 @@ model User {
 
   matchSquads MatchSquad[]
   bids        Bid[]
+  roundsWon   MatchRound[] @relation("RoundWinner")
+  roundTurns  MatchRound[] @relation("RoundTurn")
 
   @@index([elo])
 }
@@ -101,6 +103,12 @@ model Room {
   isPublic   Boolean    @default(false)
   hostReady  Boolean    @default(false)
   guestReady Boolean    @default(false)
+
+  // Match settings chosen by the host at lobby creation — carried over to
+  // the Match once both players ready up. Only configurable for private
+  // ("Play with Friends") rooms; public matchmaking rooms use the defaults.
+  budget      Int @default(1000)
+  totalRounds Int @default(11)
 
   hostId  String
   guestId String?
@@ -166,9 +174,11 @@ enum RoundStatus {
   SKIPPED
 }
 
-// One footballer "pop" during a match. Tracks the blind-bid lifecycle
-// for the bidding variant, and is also referenced by MatchSquad when the
-// player is assigned to a slot (draft/simultaneous variants).
+// One footballer "pop" during a match. Bidding is a turn-based ascending
+// auction: whoever's turn it is must either raise the current high bid or
+// pass, and passing (or timing out) ends the round in the other player's
+// favor at whatever they last bid — also referenced by MatchSquad once the
+// winner assigns the player to a slot.
 model MatchRound {
   id          String      @id @default(cuid())
   matchId     String
@@ -180,6 +190,15 @@ model MatchRound {
 
   biddingEndsAt DateTime?
 
+  // Whose turn it is to raise or pass. Null once the round resolves.
+  turnUserId String?
+  turnUser   User?   @relation("RoundTurn", fields: [turnUserId], references: [id])
+
+  // The current (and, once resolved, final) high bidder. Null if nobody has bid yet.
+  winnerId   String?
+  winningBid Int?
+  winner     User?   @relation("RoundWinner", fields: [winnerId], references: [id])
+
   bids   Bid[]
   squads MatchSquad[]
 
@@ -189,7 +208,7 @@ model MatchRound {
   @@index([matchId])
 }
 
-// A single user's blind bid for the player popped in a given round.
+// One raise in a round's ascending auction — a user can log several per round.
 model Bid {
   id           String     @id @default(cuid())
   matchRoundId String
@@ -199,7 +218,7 @@ model Bid {
   amount       Int
   createdAt    DateTime   @default(now())
 
-  @@unique([matchRoundId, userId])
+  @@index([matchRoundId])
 }
 
 // A footballer slotted into one user's formation for a given match.

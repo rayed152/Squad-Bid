@@ -8,6 +8,8 @@ type RoomState = {
   id: string;
   code: string;
   status: "WAITING" | "READY" | "IN_PROGRESS" | "CLOSED";
+  budget: number;
+  totalRounds: number;
   hostReady: boolean;
   guestReady: boolean;
   host: { id: string; username: string; elo: number } | null;
@@ -96,6 +98,17 @@ export default function RoomPage({ params }: { params: { code: string } }) {
           Leave
         </button>
       </header>
+
+      <div className="flex justify-center gap-6 text-center text-xs text-gray-400">
+        <p>
+          <span className="block text-base font-bold text-gray-100">{room.budget}</span>
+          starting coins
+        </p>
+        <p>
+          <span className="block text-base font-bold text-gray-100">{room.totalRounds}</span>
+          rounds
+        </p>
+      </div>
 
       <div className="flex flex-col gap-3">
         <PlayerSlot label="Host" player={room.host} ready={room.hostReady} />

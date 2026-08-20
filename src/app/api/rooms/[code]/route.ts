@@ -30,6 +30,8 @@ export async function GET(_req: Request, { params }: { params: { code: string } 
     code: room.code,
     status: room.status,
     isPublic: room.isPublic,
+    budget: room.budget,
+    totalRounds: room.totalRounds,
     hostReady: room.hostReady,
     guestReady: room.guestReady,
     host: room.host,
