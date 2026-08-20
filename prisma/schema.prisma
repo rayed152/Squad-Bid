@@ -107,8 +107,13 @@ model Room {
   // Match settings chosen by the host at lobby creation — carried over to
   // the Match once both players ready up. Only configurable for private
   // ("Play with Friends") rooms; public matchmaking rooms use the defaults.
-  budget      Int @default(1000)
-  totalRounds Int @default(11)
+  budget         Int @default(1000)
+  minimumBid     Int @default(500)
+  bidTimeSeconds Int @default(20)
+  bidIncrement   Int @default(10)
+  // Extra bench slots that accept a player of any position. 0 means no subs —
+  // a slot with no eligible starting XI opening blocks bidding entirely.
+  benchSize      Int @default(0)
 
   hostId  String
   guestId String?
@@ -146,9 +151,12 @@ model Match {
   formation1 String?
   formation2 String?
 
-  budget      Int @default(1000)
-  totalRounds Int @default(11)
-  currentRound Int @default(0)
+  budget         Int @default(1000)
+  minimumBid     Int @default(500)
+  bidTimeSeconds Int @default(20)
+  bidIncrement   Int @default(10)
+  benchSize      Int @default(0)
+  currentRound   Int @default(0)
 
   player1Score Float?
   player2Score Float?

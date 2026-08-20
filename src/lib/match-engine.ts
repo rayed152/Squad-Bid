@@ -1,9 +1,8 @@
 import type { Match } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getFormation, type FormationId } from "@/lib/formations";
+import { getFormation, getAllSlots, type FormationId } from "@/lib/formations";
 import { isEligibleForSlot } from "@/lib/positions";
 import { applyEloAndRecord } from "@/lib/elo";
-import { INITIAL_BID_WINDOW_MS } from "@/lib/match-config";
 
 /**
  * Lazily advances a match's round state. There's no background scheduler —
@@ -17,6 +16,9 @@ import { INITIAL_BID_WINDOW_MS } from "@/lib/match-config";
  * (or letting the clock run out) resolves the round in the other player's
  * favor at whatever they last bid — or leaves it unclaimed if nobody ever
  * bid at all.
+ *
+ * There's no fixed round cap — the match keeps popping players until both
+ * squads are completely full (or the player pool runs dry, as a safety net).
  */
 export async function ensureMatchProgress(matchId: string) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
@@ -60,12 +62,28 @@ export async function ensureMatchProgress(matchId: string) {
       }
     }
 
-    if (latestRound.roundNumber >= match.totalRounds) {
+    if (await bothSquadsFull(match)) {
       await completeMatch(match.id);
     } else {
       await startRound(match, latestRound.roundNumber + 1);
     }
   }
+}
+
+async function bothSquadsFull(match: Match): Promise<boolean> {
+  if (!match.formation1 || !match.formation2) return false;
+
+  // Includes bench slots — a match shouldn't end while there's still bench
+  // capacity a player could have used to absorb a duplicate-position bid.
+  const slots1 = getAllSlots(match.formation1 as FormationId, match.benchSize).length;
+  const slots2 = getAllSlots(match.formation2 as FormationId, match.benchSize).length;
+
+  const [count1, count2] = await Promise.all([
+    prisma.matchSquad.count({ where: { matchId: match.id, userId: match.player1Id } }),
+    prisma.matchSquad.count({ where: { matchId: match.id, userId: match.player2Id } }),
+  ]);
+
+  return count1 >= slots1 && count2 >= slots2;
 }
 
 async function startRound(match: Match, roundNumber: number) {
@@ -98,7 +116,7 @@ async function startRound(match: Match, roundNumber: number) {
         // No turnUserId yet — either player may place the opening bid. Once
         // someone does, it becomes strictly alternating raise-or-pass.
         turnUserId: null,
-        biddingEndsAt: new Date(Date.now() + INITIAL_BID_WINDOW_MS),
+        biddingEndsAt: new Date(Date.now() + match.bidTimeSeconds * 1000),
       },
     });
   } catch (err) {
@@ -124,14 +142,22 @@ async function completeMatch(matchId: string) {
     include: { player: true },
   });
 
-  const totalSlots = match.formation1 ? getFormation(match.formation1 as FormationId).slots.length : 11;
-
+  // Deliberately the starting XI only, not bench slots — bench absorbs
+  // duplicate-position wins without inflating a squad's average rating.
+  const xiSlotIds1 = new Set(
+    (match.formation1 ? getFormation(match.formation1 as FormationId).slots : []).map((s) => s.id)
+  );
+  const xiSlotIds2 = new Set(
+    (match.formation2 ? getFormation(match.formation2 as FormationId).slots : []).map((s) => s.id)
+  );
   const score1 =
-    squads.filter((s) => s.userId === match.player1Id).reduce((sum, s) => sum + s.player.overall, 0) /
-    totalSlots;
+    squads
+      .filter((s) => s.userId === match.player1Id && xiSlotIds1.has(s.assignedPosition))
+      .reduce((sum, s) => sum + s.player.overall, 0) / (xiSlotIds1.size || 11);
   const score2 =
-    squads.filter((s) => s.userId === match.player2Id).reduce((sum, s) => sum + s.player.overall, 0) /
-    totalSlots;
+    squads
+      .filter((s) => s.userId === match.player2Id && xiSlotIds2.has(s.assignedPosition))
+      .reduce((sum, s) => sum + s.player.overall, 0) / (xiSlotIds2.size || 11);
 
   let winnerId: string | null = null;
   if (score1 > score2) winnerId = match.player1Id;
@@ -160,14 +186,14 @@ export async function getOpenEligibleSlots(match: Match, userId: string, playerP
     | null;
   if (!formationId) return [];
 
-  const formation = getFormation(formationId);
+  const slots = getAllSlots(formationId, match.benchSize);
   const filled = await prisma.matchSquad.findMany({
     where: { matchId: match.id, userId },
     select: { assignedPosition: true },
   });
   const filledSet = new Set(filled.map((f) => f.assignedPosition));
 
-  return formation.slots.filter(
+  return slots.filter(
     (slot) => !filledSet.has(slot.id) && isEligibleForSlot(playerPositions, slot.position)
   );
 }

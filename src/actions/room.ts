@@ -14,11 +14,15 @@ async function requireUserId() {
   return session.user.id;
 }
 
-async function createRoom(
-  hostId: string,
-  isPublic: boolean,
-  settings?: { budget?: number; totalRounds?: number }
-) {
+type RoomSettings = {
+  budget?: number;
+  minimumBid?: number;
+  bidTimeSeconds?: number;
+  bidIncrement?: number;
+  benchSize?: number;
+};
+
+async function createRoom(hostId: string, isPublic: boolean, settings?: RoomSettings) {
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       return await prisma.room.create({
@@ -27,7 +31,10 @@ async function createRoom(
           hostId,
           isPublic,
           budget: settings?.budget,
-          totalRounds: settings?.totalRounds,
+          minimumBid: settings?.minimumBid,
+          bidTimeSeconds: settings?.bidTimeSeconds,
+          bidIncrement: settings?.bidIncrement,
+          benchSize: settings?.benchSize,
         },
       });
     } catch (err) {
@@ -69,21 +76,43 @@ export async function findRandomMatch() {
 
 const MIN_BUDGET = 100;
 const MAX_BUDGET = 10_000;
-const MIN_ROUNDS = 5;
-const MAX_ROUNDS = 20;
+const MIN_MINIMUM_BID = 0;
+const MAX_MINIMUM_BID = 5_000;
+const MIN_BID_TIME = 5;
+const MAX_BID_TIME = 60;
+const MIN_BID_INCREMENT = 1;
+const MAX_BID_INCREMENT = 500;
+const MIN_BENCH_SIZE = 0;
+const MAX_BENCH_SIZE = 10;
 
 /** "Play with Friends" — host a private room, configured with the settings picked on the setup screen. */
-export async function createFriendRoom(budget: number, totalRounds: number) {
+export async function createFriendRoom(settings: {
+  budget: number;
+  minimumBid: number;
+  bidTimeSeconds: number;
+  bidIncrement: number;
+  benchSize: number;
+}) {
   const userId = await requireUserId();
+  const { budget, minimumBid, bidTimeSeconds, bidIncrement, benchSize } = settings;
 
   if (!Number.isInteger(budget) || budget < MIN_BUDGET || budget > MAX_BUDGET) {
     return { error: `Starting coins must be between ${MIN_BUDGET} and ${MAX_BUDGET}` };
   }
-  if (!Number.isInteger(totalRounds) || totalRounds < MIN_ROUNDS || totalRounds > MAX_ROUNDS) {
-    return { error: `Rounds must be between ${MIN_ROUNDS} and ${MAX_ROUNDS}` };
+  if (!Number.isInteger(minimumBid) || minimumBid < MIN_MINIMUM_BID || minimumBid > MAX_MINIMUM_BID) {
+    return { error: `Minimum bid must be between ${MIN_MINIMUM_BID} and ${MAX_MINIMUM_BID}` };
+  }
+  if (!Number.isInteger(bidTimeSeconds) || bidTimeSeconds < MIN_BID_TIME || bidTimeSeconds > MAX_BID_TIME) {
+    return { error: `Turn time must be between ${MIN_BID_TIME} and ${MAX_BID_TIME} seconds` };
+  }
+  if (!Number.isInteger(bidIncrement) || bidIncrement < MIN_BID_INCREMENT || bidIncrement > MAX_BID_INCREMENT) {
+    return { error: `Minimum raise must be between ${MIN_BID_INCREMENT} and ${MAX_BID_INCREMENT}` };
+  }
+  if (!Number.isInteger(benchSize) || benchSize < MIN_BENCH_SIZE || benchSize > MAX_BENCH_SIZE) {
+    return { error: `Bench size must be between ${MIN_BENCH_SIZE} and ${MAX_BENCH_SIZE}` };
   }
 
-  const room = await createRoom(userId, false, { budget, totalRounds });
+  const room = await createRoom(userId, false, { budget, minimumBid, bidTimeSeconds, bidIncrement, benchSize });
   redirect(`/room/${room.code}`);
 }
 
@@ -136,7 +165,10 @@ export async function setReady(roomId: string, ready: boolean) {
         player1Id: updated.hostId,
         player2Id: updated.guestId,
         budget: updated.budget,
-        totalRounds: updated.totalRounds,
+        minimumBid: updated.minimumBid,
+        bidTimeSeconds: updated.bidTimeSeconds,
+        bidIncrement: updated.bidIncrement,
+        benchSize: updated.benchSize,
       },
     });
     await prisma.room.update({ where: { id: roomId }, data: { status: "IN_PROGRESS" } });

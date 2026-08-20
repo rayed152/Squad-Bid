@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { FormationPitch } from "@/components/formation-pitch";
 import { PlayerCard } from "@/components/player-card";
 import { FORMATION_LIST, type FormationId } from "@/lib/formations";
-import type { FormationSlot } from "@/lib/formations";
+import type { AnySlot } from "@/lib/formations";
 import { isEligibleForSlot } from "@/lib/positions";
 import type { FootballPlayer } from "@/types/player";
 
@@ -62,7 +62,7 @@ export default function ComponentPreview() {
     return formation ? formation.slots.every((slot) => assignments[slot.id]) : false;
   }, [assignments, formationId]);
 
-  function handleSlotClick(slot: FormationSlot) {
+  function handleSlotClick(slot: AnySlot) {
     if (assignments[slot.id]) return;
     if (!isEligibleForSlot(candidate.positions, slot.position)) return;
 

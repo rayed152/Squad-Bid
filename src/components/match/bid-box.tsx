@@ -8,6 +8,7 @@ export function BidBox({
   isMyTurn,
   highBid,
   minimumBid,
+  bidIncrement,
   remaining,
   onSubmitted,
 }: {
@@ -15,6 +16,7 @@ export function BidBox({
   isMyTurn: boolean;
   highBid: number | null;
   minimumBid: number;
+  bidIncrement: number;
   remaining: number;
   onSubmitted: () => void;
 }) {
@@ -22,7 +24,7 @@ export function BidBox({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const floor = highBid !== null ? highBid + 1 : minimumBid;
+  const floor = highBid !== null ? highBid + bidIncrement : minimumBid;
   const canAfford = remaining >= floor;
 
   if (!isMyTurn) {

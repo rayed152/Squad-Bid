@@ -3,8 +3,8 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ensureMatchProgress, resolveRoundAsPass } from "@/lib/match-engine";
-import { getBidWindowMs, getMinimumBid } from "@/lib/match-config";
+import { ensureMatchProgress, getOpenEligibleSlots, resolveRoundAsPass } from "@/lib/match-engine";
+import { getBidWindowMs } from "@/lib/match-config";
 
 async function requireUserId() {
   const session = await getServerSession(authOptions);
@@ -50,14 +50,18 @@ export async function submitBid(matchRoundId: string, amount: number) {
   const { round } = loaded;
   const { match } = round;
 
+  const openSlots = await getOpenEligibleSlots(match, userId, round.player.positions);
+  if (openSlots.length === 0) {
+    return { error: `You have no open slot for a ${round.player.positions.join("/")} player` };
+  }
+
   const currentHigh = round.winningBid;
   if (currentHigh === null) {
-    const minimumBid = getMinimumBid(round.player.overall);
-    if (amount < minimumBid) {
-      return { error: `Minimum opening bid for ${round.player.name} is ${minimumBid} coins` };
+    if (amount < match.minimumBid) {
+      return { error: `Minimum opening bid for this match is ${match.minimumBid} coins` };
     }
-  } else if (amount <= currentHigh) {
-    return { error: `You must bid more than ${currentHigh} coins` };
+  } else if (amount < currentHigh + match.bidIncrement) {
+    return { error: `You must raise by at least ${match.bidIncrement} coins (to ${currentHigh + match.bidIncrement}+)` };
   }
 
   const spent = await prisma.matchRound.aggregate({
@@ -80,7 +84,7 @@ export async function submitBid(matchRoundId: string, amount: number) {
       winnerId: userId,
       winningBid: amount,
       turnUserId: otherUserId,
-      biddingEndsAt: new Date(Date.now() + getBidWindowMs(bidCount + 1)),
+      biddingEndsAt: new Date(Date.now() + getBidWindowMs(bidCount + 1, match.bidTimeSeconds * 1000)),
     },
   });
   if (applied.count === 0) {

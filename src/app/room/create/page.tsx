@@ -5,11 +5,17 @@ import Link from "next/link";
 import { createFriendRoom } from "@/actions/room";
 
 const BUDGET_PRESETS = [500, 1000, 2000, 5000];
-const ROUNDS_PRESETS = [5, 11, 15, 20];
+const MINIMUM_BID_PRESETS = [100, 300, 500, 1000];
+const BID_TIME_PRESETS = [10, 15, 20, 30];
+const BID_INCREMENT_PRESETS = [5, 10, 25, 50];
+const BENCH_SIZE_PRESETS = [0, 2, 3, 5];
 
 export default function CreateRoomPage() {
   const [budget, setBudget] = useState(1000);
-  const [totalRounds, setTotalRounds] = useState(11);
+  const [minimumBid, setMinimumBid] = useState(500);
+  const [bidTimeSeconds, setBidTimeSeconds] = useState(20);
+  const [bidIncrement, setBidIncrement] = useState(10);
+  const [benchSize, setBenchSize] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -17,7 +23,7 @@ export default function CreateRoomPage() {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await createFriendRoom(budget, totalRounds);
+      const result = await createFriendRoom({ budget, minimumBid, bidTimeSeconds, bidIncrement, benchSize });
       if (result?.error) setError(result.error);
     });
   }
@@ -27,7 +33,8 @@ export default function CreateRoomPage() {
       <div>
         <h1 className="text-2xl font-black text-white">Match setup</h1>
         <p className="mt-1 text-sm text-gray-400">
-          Choose the rules for this lobby — your opponent joins with your code once it&apos;s created.
+          Choose the auction rules for this lobby — your opponent joins with your code once it&apos;s
+          created. Matches run until both squads are completely full.
         </p>
       </div>
 
@@ -44,13 +51,47 @@ export default function CreateRoomPage() {
         />
 
         <SettingField
-          label="Rounds"
-          hint="How many footballers pop up before the match ends."
-          value={totalRounds}
-          onChange={setTotalRounds}
-          presets={ROUNDS_PRESETS}
+          label="Minimum opening bid"
+          hint="The lowest bid allowed to open on a newly-popped player."
+          value={minimumBid}
+          onChange={setMinimumBid}
+          presets={MINIMUM_BID_PRESETS}
+          min={0}
+          max={5_000}
+          step={50}
+        />
+
+        <SettingField
+          label="Turn time"
+          hint="Seconds each player gets to raise or pass before the clock resets."
+          value={bidTimeSeconds}
+          onChange={setBidTimeSeconds}
+          presets={BID_TIME_PRESETS}
           min={5}
-          max={20}
+          max={60}
+          step={5}
+          suffix="s"
+        />
+
+        <SettingField
+          label="Minimum raise"
+          hint="How much higher a raise must be than the current bid — e.g. a 500 bid needs at least 510 to top it, if this is set to 10."
+          value={bidIncrement}
+          onChange={setBidIncrement}
+          presets={BID_INCREMENT_PRESETS}
+          min={1}
+          max={500}
+          step={1}
+        />
+
+        <SettingField
+          label="Substitutes"
+          hint="Bench slots that accept a player of any position — lets you buy a duplicate (e.g. a second LB) instead of being locked out once that spot's taken. 0 means no bench: once a position is full, you can't bid on another player who only fits there."
+          value={benchSize}
+          onChange={setBenchSize}
+          presets={BENCH_SIZE_PRESETS}
+          min={0}
+          max={10}
           step={1}
         />
 
@@ -81,6 +122,7 @@ function SettingField({
   min,
   max,
   step,
+  suffix,
 }: {
   label: string;
   hint: string;
@@ -90,6 +132,7 @@ function SettingField({
   min: number;
   max: number;
   step: number;
+  suffix?: string;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -111,6 +154,7 @@ function SettingField({
             }`}
           >
             {preset}
+            {suffix}
           </button>
         ))}
       </div>

@@ -19,6 +19,9 @@ export const POSITIONS = [
 
 export type Position = (typeof POSITIONS)[number];
 
+/** A formation slot is either a real position, or a bench slot that accepts any player. */
+export type SlotPosition = Position | "SUB";
+
 // Positions a footballer listed for one slot is also eligible to fill,
 // e.g. a player marked "CM" can also drop into a CDM or CAM slot.
 export const POSITION_COMPATIBILITY: Record<Position, Position[]> = {
@@ -39,8 +42,9 @@ export const POSITION_COMPATIBILITY: Record<Position, Position[]> = {
   ST: ["ST", "CF"],
 };
 
-/** Whether a footballer's listed positions make them eligible for a given slot. */
-export function isEligibleForSlot(playerPositions: string[], slotPosition: Position): boolean {
+/** Whether a footballer's listed positions make them eligible for a given slot. Bench ("SUB") slots take anyone. */
+export function isEligibleForSlot(playerPositions: string[], slotPosition: SlotPosition): boolean {
+  if (slotPosition === "SUB") return true;
   return playerPositions.some((pos) => {
     const compat = POSITION_COMPATIBILITY[pos as Position];
     return compat?.includes(slotPosition);

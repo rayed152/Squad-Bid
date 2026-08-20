@@ -3,7 +3,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getFormation, type FormationId } from "@/lib/formations";
+import { getAllSlots, type FormationId } from "@/lib/formations";
 import { isEligibleForSlot } from "@/lib/positions";
 import { ensureMatchProgress } from "@/lib/match-engine";
 
@@ -33,8 +33,8 @@ export async function assignSlot(matchRoundId: string, slotId: string) {
   ) as FormationId | null;
   if (!formationId) return { error: "No formation set" };
 
-  const formation = getFormation(formationId);
-  const slot = formation.slots.find((s) => s.id === slotId);
+  const slots = getAllSlots(formationId, round.match.benchSize);
+  const slot = slots.find((s) => s.id === slotId);
   if (!slot) return { error: "Invalid slot" };
   if (!isEligibleForSlot(round.player.positions, slot.position)) {
     return { error: `${round.player.name} isn't eligible for ${slot.position}` };

@@ -9,7 +9,10 @@ type RoomState = {
   code: string;
   status: "WAITING" | "READY" | "IN_PROGRESS" | "CLOSED";
   budget: number;
-  totalRounds: number;
+  minimumBid: number;
+  bidTimeSeconds: number;
+  bidIncrement: number;
+  benchSize: number;
   hostReady: boolean;
   guestReady: boolean;
   host: { id: string; username: string; elo: number } | null;
@@ -99,14 +102,28 @@ export default function RoomPage({ params }: { params: { code: string } }) {
         </button>
       </header>
 
-      <div className="flex justify-center gap-6 text-center text-xs text-gray-400">
+      <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-center text-xs text-gray-400">
         <p>
           <span className="block text-base font-bold text-gray-100">{room.budget}</span>
           starting coins
         </p>
         <p>
-          <span className="block text-base font-bold text-gray-100">{room.totalRounds}</span>
-          rounds
+          <span className="block text-base font-bold text-gray-100">{room.minimumBid}</span>
+          min. opening bid
+        </p>
+        <p>
+          <span className="block text-base font-bold text-gray-100">{room.bidTimeSeconds}s</span>
+          turn time
+        </p>
+        <p>
+          <span className="block text-base font-bold text-gray-100">{room.bidIncrement}</span>
+          min. raise
+        </p>
+        <p>
+          <span className="block text-base font-bold text-gray-100">
+            {room.benchSize > 0 ? room.benchSize : "None"}
+          </span>
+          subs
         </p>
       </div>
 

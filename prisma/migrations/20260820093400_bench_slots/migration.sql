@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Match" ADD COLUMN     "benchSize" INTEGER NOT NULL DEFAULT 0;
+
+-- AlterTable
+ALTER TABLE "Room" ADD COLUMN     "benchSize" INTEGER NOT NULL DEFAULT 0;

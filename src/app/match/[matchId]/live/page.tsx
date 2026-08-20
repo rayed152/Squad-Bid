@@ -6,8 +6,8 @@ import { FormationPitch } from "@/components/formation-pitch";
 import { PlayerCard } from "@/components/player-card";
 import { CountdownRing } from "@/components/countdown-ring";
 import { BidBox } from "@/components/match/bid-box";
-import { getBidWindowMs, getMinimumBid } from "@/lib/match-config";
-import type { FormationId, FormationSlot } from "@/lib/formations";
+import { getBidWindowMs } from "@/lib/match-config";
+import { getAllSlots, type AnySlot, type FormationId } from "@/lib/formations";
 import type { FootballPlayer } from "@/types/player";
 import { assignSlot } from "@/actions/assign";
 import { forfeitMatch } from "@/actions/forfeit";
@@ -31,7 +31,10 @@ type LiveMatch = {
   status: "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "FORMATION_SELECT";
   formation1: FormationId | null;
   formation2: FormationId | null;
-  totalRounds: number;
+  minimumBid: number;
+  bidTimeSeconds: number;
+  bidIncrement: number;
+  benchSize: number;
   player1: { id: string; username: string };
   player2: { id: string; username: string };
   viewerIsPlayer1: boolean;
@@ -99,7 +102,14 @@ export default function LiveMatchPage({ params }: { params: { matchId: string } 
   const round = match.round;
   const iAmAwaitingSlot = Boolean(round && round.awaitingSlotFrom === me.id);
 
-  async function handleSlotClick(slot: FormationSlot) {
+  const mySlotTotal = myFormationId ? getAllSlots(myFormationId, match.benchSize).length : 0;
+  const opponentSlotTotal = opponentFormationId
+    ? getAllSlots(opponentFormationId, match.benchSize).length
+    : 0;
+  const myFilledCount = Object.keys(myAssignments).length;
+  const opponentFilledCount = Object.keys(opponentAssignments).length;
+
+  async function handleSlotClick(slot: AnySlot) {
     if (!round || !iAmAwaitingSlot) return;
     setAssignPending(true);
     await assignSlot(round.id, slot.id);
@@ -124,7 +134,7 @@ export default function LiveMatchPage({ params }: { params: { matchId: string } 
         </div>
         <div className="flex flex-col items-center gap-1">
           <p className="font-semibold text-gray-500">
-            Round {round?.roundNumber ?? "–"} / {match.totalRounds}
+            {myFilledCount}/{mySlotTotal} · {opponentFilledCount}/{opponentSlotTotal}
           </p>
           <button
             onClick={handleForfeit}
@@ -148,14 +158,18 @@ export default function LiveMatchPage({ params }: { params: { matchId: string } 
             <div className="flex items-center gap-4">
               <PlayerCard player={round.player} highlightPositions={round.player.positions} />
               {round.biddingEndsAt && (
-                <CountdownRing endsAt={round.biddingEndsAt} windowMs={getBidWindowMs(round.bidCount)} />
+                <CountdownRing
+                  endsAt={round.biddingEndsAt}
+                  windowMs={getBidWindowMs(round.bidCount, match.bidTimeSeconds * 1000)}
+                />
               )}
             </div>
             <BidBox
               matchRoundId={round.id}
               isMyTurn={round.isMyTurn}
               highBid={round.highBid}
-              minimumBid={getMinimumBid(round.player.overall)}
+              minimumBid={match.minimumBid}
+              bidIncrement={match.bidIncrement}
               remaining={match.myBudgetRemaining}
               onSubmitted={poll}
             />
@@ -188,6 +202,7 @@ export default function LiveMatchPage({ params }: { params: { matchId: string } 
           {myFormationId && (
             <FormationPitch
               formationId={myFormationId}
+              benchSize={match.benchSize}
               assignments={myAssignments}
               candidate={iAmAwaitingSlot ? round!.player : null}
               onSlotClick={iAmAwaitingSlot ? handleSlotClick : undefined}
@@ -199,7 +214,11 @@ export default function LiveMatchPage({ params }: { params: { matchId: string } 
             {opponent.username}&apos;s squad
           </p>
           {opponentFormationId && (
-            <FormationPitch formationId={opponentFormationId} assignments={opponentAssignments} />
+            <FormationPitch
+              formationId={opponentFormationId}
+              benchSize={match.benchSize}
+              assignments={opponentAssignments}
+            />
           )}
         </div>
       </div>

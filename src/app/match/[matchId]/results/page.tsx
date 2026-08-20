@@ -57,6 +57,7 @@ export default async function ResultsPage({ params }: { params: { matchId: strin
           score={match.player1Score}
           isWinner={match.winnerId === match.player1Id}
           formationId={match.formation1 as FormationId | null}
+          benchSize={match.benchSize}
           assignments={assignmentsFor(match.player1Id)}
         />
         <Side
@@ -64,6 +65,7 @@ export default async function ResultsPage({ params }: { params: { matchId: strin
           score={match.player2Score}
           isWinner={match.winnerId === match.player2Id}
           formationId={match.formation2 as FormationId | null}
+          benchSize={match.benchSize}
           assignments={assignmentsFor(match.player2Id)}
         />
       </div>
@@ -83,12 +85,14 @@ function Side({
   score,
   isWinner,
   formationId,
+  benchSize,
   assignments,
 }: {
   label: string;
   score: number | null;
   isWinner: boolean;
   formationId: FormationId | null;
+  benchSize: number;
   assignments: Record<string, ReturnType<typeof toFootballPlayer>>;
 }) {
   return (
@@ -99,7 +103,9 @@ function Side({
         </p>
         <p className="text-lg font-black text-white">{score?.toFixed(1) ?? "–"}</p>
       </div>
-      {formationId && <FormationPitch formationId={formationId} assignments={assignments} />}
+      {formationId && (
+        <FormationPitch formationId={formationId} benchSize={benchSize} assignments={assignments} />
+      )}
     </div>
   );
 }
