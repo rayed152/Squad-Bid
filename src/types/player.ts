@@ -13,6 +13,8 @@ export type FootballPlayer = PlayerStats & {
   id: string;
   name: string;
   nationality: string;
+  club: string;
+  league: string;
   overall: number;
   positions: Position[];
   imageUrl?: string | null;

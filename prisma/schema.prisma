@@ -81,6 +81,8 @@ model User {
 
   matchSquads MatchSquad[]
   bids        Bid[]
+  roundsWon   MatchRound[] @relation("RoundWinner")
+  roundTurns  MatchRound[] @relation("RoundTurn")
 
   @@index([elo])
 }
@@ -101,6 +103,27 @@ model Room {
   isPublic   Boolean    @default(false)
   hostReady  Boolean    @default(false)
   guestReady Boolean    @default(false)
+
+  // General lobby info, set by the host at creation. All optional — a room
+  // works fine with none of these filled in.
+  name        String?
+  description String?
+  scheduledAt DateTime?
+
+  // Match settings chosen by the host at lobby creation — carried over to
+  // the Match once both players ready up. Only configurable for private
+  // ("Play with Friends") rooms; public matchmaking rooms use the defaults.
+  budget         Int @default(1000)
+  minimumBid     Int @default(500)
+  bidTimeSeconds Int @default(20)
+  bidIncrement   Int @default(10)
+  // Extra bench slots that accept a player of any position. 0 means no subs —
+  // a slot with no eligible starting XI opening blocks bidding entirely.
+  benchSize      Int @default(0)
+
+  // Curated player pool for this room's match, chosen by the host. Empty
+  // means "all players" (the original, unrestricted behavior).
+  poolPlayerIds String[] @default([])
 
   hostId  String
   guestId String?
@@ -138,9 +161,16 @@ model Match {
   formation1 String?
   formation2 String?
 
-  budget      Int @default(1000)
-  totalRounds Int @default(11)
-  currentRound Int @default(0)
+  budget         Int @default(1000)
+  minimumBid     Int @default(500)
+  bidTimeSeconds Int @default(20)
+  bidIncrement   Int @default(10)
+  benchSize      Int @default(0)
+  currentRound   Int @default(0)
+
+  // Curated player pool copied from the Room at match creation. Empty means
+  // "all players" — see Room.poolPlayerIds.
+  poolPlayerIds String[] @default([])
 
   player1Score Float?
   player2Score Float?
@@ -166,9 +196,11 @@ enum RoundStatus {
   SKIPPED
 }
 
-// One footballer "pop" during a match. Tracks the blind-bid lifecycle
-// for the bidding variant, and is also referenced by MatchSquad when the
-// player is assigned to a slot (draft/simultaneous variants).
+// One footballer "pop" during a match. Bidding is a turn-based ascending
+// auction: whoever's turn it is must either raise the current high bid or
+// pass, and passing (or timing out) ends the round in the other player's
+// favor at whatever they last bid — also referenced by MatchSquad once the
+// winner assigns the player to a slot.
 model MatchRound {
   id          String      @id @default(cuid())
   matchId     String
@@ -180,6 +212,15 @@ model MatchRound {
 
   biddingEndsAt DateTime?
 
+  // Whose turn it is to raise or pass. Null once the round resolves.
+  turnUserId String?
+  turnUser   User?   @relation("RoundTurn", fields: [turnUserId], references: [id])
+
+  // The current (and, once resolved, final) high bidder. Null if nobody has bid yet.
+  winnerId   String?
+  winningBid Int?
+  winner     User?   @relation("RoundWinner", fields: [winnerId], references: [id])
+
   bids   Bid[]
   squads MatchSquad[]
 
@@ -189,7 +230,7 @@ model MatchRound {
   @@index([matchId])
 }
 
-// A single user's blind bid for the player popped in a given round.
+// One raise in a round's ascending auction — a user can log several per round.
 model Bid {
   id           String     @id @default(cuid())
   matchRoundId String
@@ -199,7 +240,7 @@ model Bid {
   amount       Int
   createdAt    DateTime   @default(now())
 
-  @@unique([matchRoundId, userId])
+  @@index([matchRoundId])
 }
 
 // A footballer slotted into one user's formation for a given match.
@@ -233,6 +274,8 @@ model Player {
   name        String
   nationality String
   positions   String[]
+  club        String   @default("")
+  league      String   @default("")
   overall     Int
   pace        Int
   shooting    Int
@@ -248,4 +291,7 @@ model Player {
 
   @@index([overall])
   @@index([positions])
+  @@index([nationality])
+  @@index([club])
+  @@index([league])
 }

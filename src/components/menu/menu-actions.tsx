@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { findRandomMatch, createFriendRoom, joinRoomByCode } from "@/actions/room";
+import Link from "next/link";
+import { findRandomMatch, joinRoomByCode } from "@/actions/room";
 
 export function MenuActions() {
   const [error, setError] = useState<string | null>(null);
   const [findPending, startFind] = useTransition();
-  const [createPending, startCreate] = useTransition();
   const [joinPending, startJoin] = useTransition();
   const [code, setCode] = useState("");
 
@@ -34,13 +34,12 @@ export function MenuActions() {
         <p className="text-sm font-bold text-gray-100">Play with Friends</p>
         <p className="mt-0.5 text-xs text-gray-400">Host a room and share the code, or join one.</p>
 
-        <button
-          onClick={() => startCreate(() => createFriendRoom())}
-          disabled={createPending}
-          className="mt-3 w-full rounded-lg border border-squad-border bg-black/20 px-3 py-2 text-sm font-semibold text-gray-100 transition hover:border-white/30 disabled:opacity-50"
+        <Link
+          href="/room/create"
+          className="mt-3 block w-full rounded-lg border border-squad-border bg-black/20 px-3 py-2 text-center text-sm font-semibold text-gray-100 transition hover:border-white/30"
         >
-          {createPending ? "Creating room…" : "Create room"}
-        </button>
+          Create room
+        </Link>
 
         <form onSubmit={handleJoin} className="mt-2 flex gap-2">
           <input

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { FormationPitch } from "@/components/formation-pitch";
 import { PlayerCard } from "@/components/player-card";
 import { FORMATION_LIST, type FormationId } from "@/lib/formations";
-import type { FormationSlot } from "@/lib/formations";
+import type { AnySlot } from "@/lib/formations";
 import { isEligibleForSlot } from "@/lib/positions";
 import type { FootballPlayer } from "@/types/player";
 
@@ -13,6 +13,8 @@ const SAMPLE_POOL: FootballPlayer[] = [
     id: "1",
     name: "Lionel Messi",
     nationality: "Argentina",
+    club: "Inter Miami",
+    league: "MLS",
     overall: 90,
     positions: ["RW", "CAM"],
     pace: 80,
@@ -26,6 +28,8 @@ const SAMPLE_POOL: FootballPlayer[] = [
     id: "2",
     name: "Virgil van Dijk",
     nationality: "Netherlands",
+    club: "Liverpool",
+    league: "Premier League",
     overall: 89,
     positions: ["CB"],
     pace: 78,
@@ -39,6 +43,8 @@ const SAMPLE_POOL: FootballPlayer[] = [
     id: "3",
     name: "Kylian Mbappe",
     nationality: "France",
+    club: "Real Madrid",
+    league: "La Liga",
     overall: 91,
     positions: ["ST", "LW"],
     pace: 97,
@@ -62,7 +68,7 @@ export default function ComponentPreview() {
     return formation ? formation.slots.every((slot) => assignments[slot.id]) : false;
   }, [assignments, formationId]);
 
-  function handleSlotClick(slot: FormationSlot) {
+  function handleSlotClick(slot: AnySlot) {
     if (assignments[slot.id]) return;
     if (!isEligibleForSlot(candidate.positions, slot.position)) return;
 

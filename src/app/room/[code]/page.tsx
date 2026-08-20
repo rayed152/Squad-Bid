@@ -8,6 +8,15 @@ type RoomState = {
   id: string;
   code: string;
   status: "WAITING" | "READY" | "IN_PROGRESS" | "CLOSED";
+  name: string | null;
+  description: string | null;
+  scheduledAt: string | null;
+  poolSize: number;
+  budget: number;
+  minimumBid: number;
+  bidTimeSeconds: number;
+  bidIncrement: number;
+  benchSize: number;
   hostReady: boolean;
   guestReady: boolean;
   host: { id: string; username: string; elo: number } | null;
@@ -96,6 +105,49 @@ export default function RoomPage({ params }: { params: { code: string } }) {
           Leave
         </button>
       </header>
+
+      {(room.name || room.description || room.scheduledAt) && (
+        <div className="rounded-xl border border-squad-border bg-squad-panel px-4 py-3 text-center">
+          {room.name && <p className="text-base font-bold text-gray-100">{room.name}</p>}
+          {room.description && <p className="mt-1 text-sm text-gray-400">{room.description}</p>}
+          {room.scheduledAt && (
+            <p className="mt-1 text-xs text-gray-500">
+              Opens {new Date(room.scheduledAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-center text-xs text-gray-400">
+        <p>
+          <span className="block text-base font-bold text-gray-100">{room.budget}</span>
+          starting coins
+        </p>
+        <p>
+          <span className="block text-base font-bold text-gray-100">{room.minimumBid}</span>
+          min. opening bid
+        </p>
+        <p>
+          <span className="block text-base font-bold text-gray-100">{room.bidTimeSeconds}s</span>
+          turn time
+        </p>
+        <p>
+          <span className="block text-base font-bold text-gray-100">{room.bidIncrement}</span>
+          min. raise
+        </p>
+        <p>
+          <span className="block text-base font-bold text-gray-100">
+            {room.benchSize > 0 ? room.benchSize : "None"}
+          </span>
+          subs
+        </p>
+        <p>
+          <span className="block text-base font-bold text-gray-100">
+            {room.poolSize > 0 ? room.poolSize : "All"}
+          </span>
+          player pool
+        </p>
+      </div>
 
       <div className="flex flex-col gap-3">
         <PlayerSlot label="Host" player={room.host} ready={room.hostReady} />

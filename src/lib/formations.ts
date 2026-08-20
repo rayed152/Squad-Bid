@@ -1,4 +1,4 @@
-import type { Position } from "./positions";
+import type { Position, SlotPosition } from "./positions";
 
 export type FormationSlot = {
   /** Stable id for this slot within the formation, e.g. "cb-1". */
@@ -8,6 +8,27 @@ export type FormationSlot = {
   x: number;
   y: number;
 };
+
+/** A bench slot — no pitch coordinates, since it renders off-field. Accepts any position. */
+export type BenchSlot = {
+  id: string;
+  position: "SUB";
+};
+
+export type AnySlot = FormationSlot | BenchSlot;
+
+/** Generates the host-configured number of bench slots, e.g. "sub-1", "sub-2". */
+export function getBenchSlots(benchSize: number): BenchSlot[] {
+  return Array.from({ length: Math.max(0, benchSize) }, (_, i) => ({
+    id: `sub-${i + 1}`,
+    position: "SUB" as const,
+  }));
+}
+
+/** Every slot a squad has to fill: the formation's starting XI plus any configured bench. */
+export function getAllSlots(formationId: FormationId, benchSize: number): AnySlot[] {
+  return [...getFormation(formationId).slots, ...getBenchSlots(benchSize)];
+}
 
 export type FormationId = "4-3-3" | "4-4-2" | "3-5-2" | "4-2-3-1" | "5-3-2";
 
