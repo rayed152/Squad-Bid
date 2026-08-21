@@ -44,7 +44,7 @@ type LiveMatch = {
   round: LiveRound | null;
 };
 
-const POLL_INTERVAL_MS = 1200;
+const POLL_INTERVAL_MS = 700;
 
 export default function LiveMatchPage({ params }: { params: { matchId: string } }) {
   const router = useRouter();
