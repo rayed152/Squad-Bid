@@ -1,17 +1,10 @@
 "use server";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireUserId } from "@/lib/session";
 import { getAllSlots, type FormationId } from "@/lib/formations";
 import { isEligibleForSlot } from "@/lib/positions";
 import { ensureMatchProgress } from "@/lib/match-engine";
-
-async function requireUserId() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new Error("Not authenticated");
-  return session.user.id;
-}
 
 export async function assignSlot(matchRoundId: string, slotId: string) {
   const userId = await requireUserId();

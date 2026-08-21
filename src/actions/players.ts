@@ -1,18 +1,9 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import type { Prisma } from "@prisma/client";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireUserId } from "@/lib/session";
 import { toFootballPlayer } from "@/lib/player-mapper";
-
-async function requireUserId() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    throw new Error("Not signed in");
-  }
-  return session.user.id;
-}
 
 /** Distinct nationality/league/club values across the player pool, for filter dropdowns. */
 export async function getPlayerFilterOptions() {

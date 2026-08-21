@@ -55,6 +55,10 @@ export default function LiveMatchPage({ params }: { params: { matchId: string } 
 
   const poll = useCallback(async () => {
     const res = await fetch(`/api/matches/${params.matchId}/live`, { cache: "no-store" });
+    if (res.status === 401) {
+      window.location.assign("/api/auth/invalid-session");
+      return;
+    }
     if (!res.ok) return;
     const data: LiveMatch = await res.json();
     setMatch(data);

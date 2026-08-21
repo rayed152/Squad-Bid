@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getValidUserId } from "@/lib/session";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+  const userId = await getValidUserId();
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -20,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (!match) {
     return NextResponse.json({ error: "Match not found" }, { status: 404 });
   }
-  if (match.player1Id !== session.user.id && match.player2Id !== session.user.id) {
+  if (match.player1Id !== userId && match.player2Id !== userId) {
     return NextResponse.json({ error: "Not a participant in this match" }, { status: 403 });
   }
 
@@ -31,6 +30,6 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     formation2: match.formation2,
     player1: match.player1,
     player2: match.player2,
-    viewerIsPlayer1: match.player1Id === session.user.id,
+    viewerIsPlayer1: match.player1Id === userId,
   });
 }

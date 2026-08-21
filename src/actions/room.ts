@@ -1,18 +1,9 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireUserId } from "@/lib/session";
 import { generateRoomCode } from "@/lib/room-code";
-
-async function requireUserId() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    redirect("/sign-in");
-  }
-  return session.user.id;
-}
 
 type RoomSettings = {
   name?: string;

@@ -1,16 +1,9 @@
 "use server";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireUserId } from "@/lib/session";
 import { ensureMatchProgress, getOpenEligibleSlots, resolveRoundAsPass } from "@/lib/match-engine";
 import { getBidWindowMs } from "@/lib/match-config";
-
-async function requireUserId() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new Error("Not authenticated");
-  return session.user.id;
-}
 
 async function loadActiveRound(matchRoundId: string, userId: string) {
   const round = await prisma.matchRound.findUnique({

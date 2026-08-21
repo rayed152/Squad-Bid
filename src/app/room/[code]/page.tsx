@@ -36,6 +36,10 @@ export default function RoomPage({ params }: { params: { code: string } }) {
 
   const poll = useCallback(async () => {
     const res = await fetch(`/api/rooms/${params.code}`, { cache: "no-store" });
+    if (res.status === 401) {
+      window.location.assign("/api/auth/invalid-session");
+      return;
+    }
     if (res.status === 404 || res.status === 403) {
       setNotFound(true);
       return;

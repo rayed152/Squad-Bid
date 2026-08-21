@@ -27,6 +27,10 @@ export default function FormationSelectPage({ params }: { params: { matchId: str
 
   const poll = useCallback(async () => {
     const res = await fetch(`/api/matches/${params.matchId}`, { cache: "no-store" });
+    if (res.status === 401) {
+      window.location.assign("/api/auth/invalid-session");
+      return;
+    }
     if (!res.ok) return;
     const data: MatchState = await res.json();
     setMatch(data);

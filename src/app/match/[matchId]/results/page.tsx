@@ -1,15 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireUserId } from "@/lib/session";
 import { FormationPitch } from "@/components/formation-pitch";
 import { toFootballPlayer } from "@/lib/player-mapper";
 import type { FormationId } from "@/lib/formations";
 
 export default async function ResultsPage({ params }: { params: { matchId: string } }) {
-  const session = await getServerSession(authOptions);
-  const userId = session!.user.id;
+  const userId = await requireUserId();
 
   const match = await prisma.match.findUnique({
     where: { id: params.matchId },

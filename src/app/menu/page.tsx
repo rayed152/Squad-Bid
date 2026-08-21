@@ -1,14 +1,13 @@
 import Link from "next/link";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireUserId } from "@/lib/session";
 import { MenuActions } from "@/components/menu/menu-actions";
 import { SignOutButton } from "@/components/menu/sign-out-button";
 
 export default async function MenuPage() {
-  const session = await getServerSession(authOptions);
+  const userId = await requireUserId();
   const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session!.user.id },
+    where: { id: userId },
     select: { username: true, elo: true, wins: true, losses: true, draws: true },
   });
 

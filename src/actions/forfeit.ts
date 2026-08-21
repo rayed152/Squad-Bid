@@ -1,15 +1,12 @@
 "use server";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireUserId } from "@/lib/session";
 import { getFormation, type FormationId } from "@/lib/formations";
 import { applyEloAndRecord } from "@/lib/elo";
 
 export async function forfeitMatch(matchId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new Error("Not authenticated");
-  const userId = session.user.id;
+  const userId = await requireUserId();
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return { error: "Match not found" };
